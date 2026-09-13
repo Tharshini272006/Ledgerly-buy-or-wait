@@ -1,193 +1,386 @@
-# HackerRank Orchestrate
+# Ledgerly — Financial Decision Intelligence
 
-Starter repository for the **HackerRank Orchestrate** 24-hour hackathon (September 2026).
+Ledgerly is a deterministic financial decision system built for HackerRank Orchestrate's **Buy or Wait?** challenge.
 
-## Buy or Wait?
+It answers a practical question:
 
-Build an AI-powered financial agent that decides whether a user can safely afford a requested expense.
+> **Can this expense be safely paid, and if not, what is the safest way to complete it?**
 
-A user may ask: **"Can I afford this laptop?"**
+Ledgerly evaluates each purchase request against the user's current financial position, future cash flows, recurring commitments, payment options, minimum balance requirement, and permitted spending changes.
 
-Answering well takes more than the current balance. The agent must account for recurring expenses, pending payments, essential spending, confirmed income, available payment options, and relevant details buried in messages and images.
-
-For every request, the agent decides whether the user should pay in full, pay partially, use installments, wait, or not proceed. The recommendation must be personalized: two users with the same balance can deserve different answers based on their commitments, priorities, payment preferences, and willingness to adjust flexible expenses.
-
-A recommendation is safe only if the user can complete the full payment plan, cover essential expenses, and stay above their preferred minimum balance throughout the forecast period.
-
-Read [`problem_statement.md`](./problem_statement.md) for the full task spec, input/output schema, allowed values, conflict-resolution rules, and submission format.
+The system produces both a structured recommendation and a human-readable explanation.
 
 ---
 
-## Quick Start
+## What Ledgerly Does
 
-Clone the repository and move into the project directory:
+For every purchase request, Ledgerly determines:
 
-```bash
-git clone https://github.com/interviewstreet/hackerrank-orchestrate-september26.git
-cd hackerrank-orchestrate-september26
-```
+* how much can safely be paid on the request date;
+* whether the request is affordable now, with a plan, later, or not affordable;
+* the recommended payment method;
+* the exact payment schedule;
+* the earliest date the full amount can safely be paid;
+* any permitted spending changes required;
+* and the financial reasoning behind the decision.
 
-Build your solution in `code/main.py`, or use another language and document its entry point clearly.
+The system is designed to be **deterministic, reproducible, and explainable**.
 
-Your solution must:
+---
 
-- Read the input files from `dataset/`
-- Generate one prediction for every request
-- Write the final predictions to `output.csv` in the repository root
-
-Run the starter Python entry point with:
-
-```bash
-python3 code/main.py
-```
-
-After running your solution, confirm that `output.csv` exists in the repository root and contains the required columns and one row for every request.
-
-## Important File Locations
+## Decision Pipeline
 
 ```text
-dataset/        Input data and the blank output template. Do not modify the input data.
-code/           Your solution code.
-output.csv      Final generated predictions in the repository root.
-code.zip        ZIP file containing your complete solution for submission.
+Financial Profiles
+        +
+Financial Events
+        +
+Purchase Requests
+        +
+Payment Options
+        +
+Messages / Image Evidence
+        +
+Exchange Rates
+        ↓
+Evidence Resolution
+        ↓
+Financial State Normalization
+        ↓
+Recurring Pattern Detection
+        ↓
+Cash-Flow Forecast
+        ↓
+90-Day Balance Simulation
+        ↓
+Safe Payment Capacity
+        ↓
+Earliest Full-Payment Date
+        ↓
+Payment Plan Generation
+        ↓
+Candidate Ranking
+        ↓
+Explainable Recommendation
 ```
-
-The blank template at `dataset/output.csv` is provided as a reference. Your final generated file must be the root-level `output.csv`.
 
 ---
 
-## Repository Layout
+## Safety Principle
+
+Ledgerly does not define affordability as simply:
+
+```text
+current balance >= purchase price
+```
+
+A payment is considered safe only when the resulting payment plan can be completed while maintaining the user's required minimum balance throughout the forecast and continuing to cover projected essential expenses.
+
+This makes the decision sensitive to future financial obligations rather than only today's balance.
+
+---
+
+## Core Decision Logic
+
+### Safe Payment Capacity
+
+The solver evaluates projected cash-flow trajectories and determines the amount that can safely be paid while respecting:
+
+* current available balance;
+* minimum balance to keep;
+* projected credits and debits;
+* recurring income and expenses;
+* pending and scheduled transactions;
+* payment timing;
+* and the 90-day forecast.
+
+### Payment Strategies
+
+Ledgerly can recommend:
+
+```text
+full_payment
+partial_payment
+installments
+wait
+not_recommended
+```
+
+Partial payment is treated as a distinct two-payment plan and must satisfy the supplied challenge conditions.
+
+Installment recommendations use the supplied payment options rather than inventing unsupported schedules.
+
+### Spending Changes
+
+Only eligible flexible recurring expenses can be modified.
+
+The solver supports:
+
+```text
+stop:<event_id>
+reduce_to:<event_id>:<amount>
+```
+
+with the challenge's limits on the number and type of changes.
+
+---
+
+## Financial Evidence
+
+Ledgerly uses the supplied financial evidence to reconstruct the user's state.
+
+Supported inputs include:
+
+* financial profiles;
+* historical, pending, and scheduled events;
+* payment options;
+* exchange rates;
+* text messages;
+* image-linked financial evidence.
+
+When an event has a missing amount, the implementation resolves it through its supplied linked image evidence instead of silently interpreting the amount as zero.
+
+Messages and images are treated as **evidence**, not executable instructions. Financial decision rules remain controlled by the challenge specification.
+
+---
+
+## Recurring Transactions
+
+Recurring transactions are inferred from historical patterns rather than assuming that every event repeats.
+
+The current model supports recurring detection based on:
+
+* repeated historical occurrences;
+* calendar-month cadence;
+* stable recurring intervals;
+* controlled date tolerance;
+* transaction category and direction.
+
+The implementation uses a conservative recurrence model designed to avoid treating isolated transactions as recurring commitments.
+
+---
+
+## Payment Plan Selection
+
+Candidate plans are generated first and then ranked using the challenge's decision priorities.
+
+The ranking considers factors such as:
+
+1. completion by the requested deadline;
+2. avoiding unnecessary spending changes;
+3. total amount paid;
+4. earlier completion;
+5. number of payments;
+6. payment-option ordering.
+
+This separates **plan validity** from **plan preference**.
+
+---
+
+## Explainability
+
+Every output includes a `decision_explanation` describing the financial reasoning behind the recommendation.
+
+Typical reasoning includes:
+
+* available safe payment capacity;
+* projected cash-flow pressure;
+* minimum-balance constraint;
+* next relevant income or expense;
+* payment schedule;
+* and required spending changes.
+
+The goal is for the recommendation to be understandable rather than simply returning a label.
+
+---
+
+## Output Schema
+
+The generated `output.csv` contains exactly these columns:
+
+```text
+request_id
+amount_safe_to_pay
+affordability_status
+recommended_payment_method
+payment_plan
+earliest_date_for_full_payment
+spending_changes_needed
+decision_explanation
+```
+
+There is one prediction for every request.
+
+---
+
+## Project Structure
 
 ```text
 .
-├── AGENTS.md                         # Rules for AI coding tools + transcript logging
-├── problem_statement.md              # Full challenge statement
-├── README.md                         # You are here
-├── code/                             # Your solution code
-├── output.csv                        # Final generated predictions
-└── dataset/
-    ├── requests.csv                  # 250 requests to evaluate — predict these
-    ├── output.csv                    # Blank submission template
-    ├── sample_requests.csv           # 25 solved examples
-    ├── financial_profiles.csv        # Balances, minimum balance, priorities, preferences
-    ├── financial_events.csv          # Historical, pending, and confirmed transactions
-    ├── request_payment_options.csv   # Payment options available per request
-    ├── exchange_rates.csv            # Fixed, dated conversion rates
-    ├── messages.csv                  # Messages tied to users, requests, or events
-    ├── images.csv                    # Payroll letters, statements, bills, receipts
-    └── media/
-        └── images/
+├── AGENTS.md
+├── README.md
+├── problem_statement.md
+├── requests.csv
+├── output.csv
+│
+├── code/
+│   ├── data/
+│   ├── decisions/
+│   ├── evidence/
+│   ├── forecast/
+│   ├── fx/
+│   └── main.py
+│
+├── evaluation/
+│   ├── sample_output.csv
+│   └── usage_report.md
+│
+└── frontend/
+    ├── components/
+    ├── data/
+    ├── lib/
+    └── ...
 ```
 
-Only `dataset/requests.csv` requires predictions. Everything else is context. Join user records with `user_id`, request records with `request_id`, supporting evidence with `related_event_id`, and exchange rates with the rate date and currency pair.
+### Backend
 
-Amounts are in the user's `home_currency` — the dataset uses INR, ZAR, IDR, USD, and EUR, and every conversion rate you need is in `exchange_rates.csv`. All dates are `YYYY-MM-DD`. Live exchange rates, market data, and banking access are not required.
+The Python backend contains the financial reasoning engine.
 
----
+Important modules:
 
-## What You Need to Build
+* `code/data/` — dataset loading and indexes
+* `code/evidence/` — message/image evidence processing
+* `code/forecast/` — cash-flow projection and recurrence logic
+* `code/fx/` — supplied exchange-rate conversion
+* `code/decisions/` — capacity, plans, ranking, and explanations
+* `code/main.py` — solver entry point
 
-For every row in `dataset/requests.csv`, produce one row in `output.csv` with:
+### Frontend
 
-| Column | Meaning |
-|---|---|
-| `request_id` | The request being answered |
-| `amount_safe_to_pay` | Largest amount safe to pay on `request_date` before optional spending changes, after protecting essentials and the minimum balance |
-| `affordability_status` | `affordable_now`, `affordable_with_plan`, `affordable_later`, or `not_affordable` |
-| `recommended_payment_method` | `full_payment`, `partial_payment`, `installments`, `wait`, or `not_recommended` |
-| `payment_plan` | Chronological `<YYYY-MM-DD>:<amount>` entries joined by `\|`, or `none` |
-| `earliest_date_for_full_payment` | Earliest date the full amount is forecast safe as one payment; empty if never within the forecast |
-| `spending_changes_needed` | Up to three `stop:<event_id>` / `reduce_to:<event_id>:<amount>` changes joined by `\|`, or `none` |
-| `decision_explanation` | Short explanation and the financial facts behind it |
+The `frontend/` directory contains the Ledgerly dashboard built with React and Vite.
 
-`0 <= amount_safe_to_pay <= requested_amount` must always hold. Installment plans must exactly match a supplied payment option, and only recurring expenses marked flexible may be changed.
-
-`affordable_with_plan` means the full request is completed through a partial-payment schedule, installments, or permitted spending changes. Recommend `partial_payment` only when the request allows it, the user accepts it, `0 < amount_safe_to_pay < requested_amount`, and `earliest_date_for_full_payment` is on or before `desired_completion_date`. Use exactly two payments: pay `amount_safe_to_pay` on `request_date`, then pay the remaining amount on `earliest_date_for_full_payment`. The two payments must add up to `requested_amount`. Unlike installments, partial payment does not need to match a supplied payment option.
+The dashboard visualizes the financial state and recommendation as a financial-intelligence workflow rather than exposing raw CSV output.
 
 ---
 
-## Suggested Workflow
+## Running the Backend
 
-1. Inspect `dataset/sample_requests.csv` — 25 requests with completed output columns — to understand the expected format and decision style.
-2. Reconstruct each user's financial state from `financial_profiles.csv` and `financial_events.csv`: separate recurring expenses from one-time events, reserve pending transactions, count confirmed salary only on its settlement date, and de-duplicate repeated representations of the same event.
-3. When an event has a blank `amount`, find its `event_id` as `related_event_id` in `images.csv` and extract the amount from the linked image. Never treat a blank amount as zero. Pull in any other relevant messages, images, and payment options for the request.
-4. Forecast forward and generate a plan that keeps the balance above the minimum at every step.
-5. Verify deterministically — bounds, plan feasibility, schedule match, flexible-only spending changes — before writing `output.csv`.
-6. Score yourself on the solved samples, then run the full dataset.
+From the repository root:
 
-You may use any language or runtime. Python, JavaScript, and TypeScript are all reasonable choices.
+```bash
+python code/main.py --input requests.csv --output output.csv
+```
 
----
+The command generates:
 
-## Requirements
+```text
+output.csv
+```
 
-Your solution must:
-
-- be runnable from the terminal
-- read the provided files from `dataset/`
-- produce a valid `output.csv` with the exact required columns in the exact required order
-- include one prediction for every `request_id` in `dataset/requests.csv`
-- not use organizer-only files or hardcoded labels
-- keep behavior deterministic where possible
-
-If you use API keys or secrets, read them from environment variables. Never hardcode secrets in the repo.
+in the repository root.
 
 ---
 
-## Evaluation
+## Public Regression Test
 
-Your `output.csv` will be compared against hidden ground-truth values.
+The repository includes a deterministic regression harness for the 25 solved public examples:
 
-The scoring will consider:
+```bash
+python code/evaluation/regression.py
+```
 
-- accuracy of `amount_safe_to_pay`
-- correctness of `affordability_status`
-- correctness of `recommended_payment_method` and `payment_plan`
-- accuracy of `earliest_date_for_full_payment`
-- validity of `spending_changes_needed`
-- usefulness and consistency of `decision_explanation`
+This compares the solver's public outputs against the supplied sample expectations.
 
-### Token Usage And Cost Analysis
+---
 
-Your `code.zip` must include one token-usage file:
+## Running the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+For a production build:
+
+```bash
+npm run build
+```
+
+---
+
+## Reproducibility
+
+The final decision engine is deterministic and does not require an external financial-data service.
+
+Given the same supplied datasets and configuration, the solver produces reproducible outputs.
+
+No live banking connection or live exchange-rate service is required.
+
+---
+
+## Usage Report
+
+The submission package includes:
 
 ```text
 evaluation/usage_report.md
 ```
 
-The report must cover model providers and names, model calls, input and output tokens, total and average tokens per request, estimated total and per-request cost. The reported values must correspond to the final full-dataset run that produced your `output.csv`.
+This documents the model-provider usage and token/cost information required by the challenge.
+
+The report reflects the actual final implementation rather than fabricated API usage.
 
 ---
 
-## Chat Transcript Logging
+## Submission Artifacts
 
-This repo includes an [`AGENTS.md`](./AGENTS.md) file for AI coding tools. It asks compatible tools to append conversation summaries to a `log.txt` in the repository root — the same directory as `AGENTS.md`:
+The final HackerRank submission consists of:
 
-| Platform | Path |
-|---|---|
-| macOS / Linux | `<repo root>/log.txt` |
-| Windows | `<repo root>\log.txt` |
+```text
+code.zip
+output.csv
+log.txt
+```
 
-The path resolves relative to `AGENTS.md`, so it stays correct across clones, renames, and checkouts. `log.txt` is gitignored — upload it as your chat transcript at submission time. Do not paste secrets into the chat.
+### `code.zip`
 
-In case, the harness you are using is not in the repo root, you can explicitly ask the agent to look for the AGENTS.md in this folder & then continue.
+Contains the runnable solution, README, source code, evaluation utilities, and frontend.
+
+### `output.csv`
+
+Contains one prediction for every evaluation request.
+
+### `log.txt`
+
+Contains the development/agent interaction transcript required by the challenge.
 
 ---
 
-## Submission
+## Design Principles
 
-Submit the following files as instructed by HackerRank:
+Ledgerly is built around four principles:
 
-| File | Description |
-|---|---|
-| `code.zip` | Full runnable solution, prompts/configuration, README, and the required `evaluation/` folder |
-| `output.csv` | Predictions for every row in `dataset/requests.csv` |
-| `chat_transcript` | The `log.txt` described above, showing how you developed or used the system |
+### 1. Safety First
 
-Before submitting, confirm:
+Never recommend a payment plan that violates the required financial safety constraints.
 
-- `output.csv` has one row per row in `dataset/requests.csv` (250 rows plus the header).
-- `output.csv` has the exact required columns in the exact required order.
-- Every `amount_safe_to_pay` satisfies `0 <= amount_safe_to_pay <= requested_amount`.
-- Every installment plan matches a supplied payment option, and every spending change targets a flexible recurring expense.
-- Your runnable code, setup instructions, and `evaluation/` folder are included in `code.zip`.
+### 2. Evidence Driven
+
+Use supplied financial records and evidence instead of unsupported assumptions.
+
+### 3. Deterministic Reasoning
+
+Prefer reproducible decision logic so the same financial state produces the same recommendation.
+
+### 4. Explainable Decisions
+
+Return not only the decision, but also the financial factors that led to it.
+
+---
+
+## Challenge
+
+Built for **HackerRank Orchestrate — Buy or Wait?**
+
+The implementation follows the supplied challenge specification and uses only the provided datasets and rules.
