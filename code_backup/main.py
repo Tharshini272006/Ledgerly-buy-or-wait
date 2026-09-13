@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import csv
 import sys
@@ -115,34 +115,15 @@ def write_output(rows: list[dict[str, str]], path: Path) -> None:
 
 
 def main() -> int:
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--input",
-        default="requests.csv",
-        help="Request CSV filename inside dataset/",
-    )
-    parser.add_argument(
-        "--output",
-        default="output.csv",
-        help="Output CSV filename relative to repo root",
-    )
-    args = parser.parse_args()
-
-    rows = decide_rows(args.input)
-
-    output_path = REPO_ROOT / args.output
+    rows = decide_rows("requests.csv")
+    output_path = REPO_ROOT / "output.csv"
     write_output(rows, output_path)
-
-    dataset = load_dataset(request_filename=args.input)
+    dataset = load_dataset()
     errors = validate_output(output_path, dataset.requests)
-
     if errors:
         for error in errors:
             print(f"VALIDATION: {error}")
         return 1
-
     print(f"Wrote {len(rows)} rows to {output_path}")
     return 0
 
